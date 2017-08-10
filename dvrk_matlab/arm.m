@@ -60,6 +60,7 @@ classdef arm < handle
         robot_state_publisher
         position_goal_joint_publisher
         position_goal_publisher
+        position_publisher
         wrench_body_orientation_absolute_publisher
         wrench_body_publisher
         gravity_compensation_publisher
@@ -167,12 +168,15 @@ classdef arm < handle
             self.position_goal_joint_publisher = rospublisher(topic, ...
                                                               rostype.sensor_msgs_JointState);
 
-
             % position goal cartesian
             topic = strcat(self.ros_name, '/set_position_goal_cartesian');
             self.position_goal_publisher = rospublisher(topic, ...
                                                         rostype.geometry_msgs_Pose);
-
+                                                    
+            % position goal cartesian
+            topic = strcat(self.ros_name, '/set_position_cartesian');
+            self.position_publisher = rospublisher(topic, ...
+                                                   rostype.geometry_msgs_Pose);
 
             % wrench cartesian
             topic = strcat(self.ros_name, '/set_wrench_body_orientation_absolute');
@@ -390,10 +394,14 @@ classdef arm < handle
 
 
 
-        function result = move(self, frame)
+        function result = move(self, frame, interpolate)
             % Move to absolute cartesian frame using trajectory
             % generator
-
+            
+            if nargin == 2
+                interpolate = true;
+            end
+            
             if ~isreal(frame)
                 result = false;
                 disp(strcat(self.robot_name, ...
@@ -427,15 +435,24 @@ classdef arm < handle
             pose_message.Orientation.X = quaternion(2);
             pose_message.Orientation.Y = quaternion(3);
             pose_message.Orientation.Z = quaternion(4);
-            % reset goal reached value and timer
-            self.goal_reached = false;
-            start(self.goal_reached_timer);
-            % send message
-            send(self.position_goal_publisher, ...
-                 pose_message);
-            % wait for timer to be interrupted by goal_reached
-            wait(self.goal_reached_timer);
-            result = self.goal_reached;
+            if interpolate
+                % reset goal reached value and timer
+                self.goal_reached = false;
+                start(self.goal_reached_timer);
+                % send message
+                send(self.position_goal_publisher, ...
+                     pose_message);
+                % wait for timer to be interrupted by goal_reached
+                wait(self.goal_reached_timer);
+                result = self.goal_reached;
+            else
+                % send message
+                send(self.position_publisher, ...
+                     pose_message);
+                result = true;
+            end
+            
+                
         end
 
 
